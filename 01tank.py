@@ -11,6 +11,10 @@ class BaseItem(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         pass
 
+    def display(self):
+        if self.live:
+            self.image = self.images[self.direction]
+            self.screen.blit(self.image, self.rect)
 
 class Tank(BaseItem):
     width = 60
@@ -70,6 +74,48 @@ class Tank(BaseItem):
     def fire(self):
         pass
 
+class Bullet(BaseItem):
+    width = 16
+    height = 16
+    def __init__(self, screen, tank):
+        super().__init__()
+        self.screen = screen
+        self.tank = tank
+        self.direction = tank.direction  # 炮弹方向有发射的坦克方向决定
+        self.speed = 12
+        self.images = {}
+        self.images["L"] = pygame.image.load('images/bulletL.png')
+        self.images["R"] = pygame.image.load('images/bulletR.png')
+        self.images["U"] = pygame.image.load('images/bulletU.png')
+        self.images["D"] = pygame.image.load('images/bulletD.png')
+        self.image = self.images[self.direction]
+        self.rect = self.image.get_rect()
+        self.rect.left = tank.rect.left + (tank.width - self.width)//2
+        self.rect.top = tank.rect.top + (tank.height - self.height)//2
+        self.live = True  # 决定炮弹是否消灭了
+
+    def move(self):
+        if self.live:
+            if self.direction == "L":
+                if self.rect.left>0:
+                    self.rect.left -= self.speed
+                else:
+                    self.live = False
+            elif self.direction == "R":
+                if self.rect.right < TankMain.width:
+                    self.rect.right += self.speed
+                else:
+                    self.live = False
+            elif self.direction == "U":
+                if self.rect.top>0:
+                    self.rect.top -= self.speed
+                else:
+                    self.live = False
+            if self.direction == "D":
+                if self.rect.bottom < TankMain.height:
+                    self.rect.bottom += self.speed
+                else:
+                    self.live = False
 
 class MyTank(Tank):
     def __init__(self, screen):
@@ -78,6 +124,8 @@ class MyTank(Tank):
         self.speed = 8
 
     def fire(self):
+        m = Bullet(self.screen, self)
+        return m
         pass
 
 class EnemyTank(Tank):
@@ -125,6 +173,9 @@ class TankMain(object):
     '''坦克大战的主窗口'''
     width = 800
     height = 600
+
+    my_tank_bullet_list = []
+    enemyList = []
     # 开始游戏的方法
     def startGame(self):
         pygame.init() # pygame模块初始化，加载系统资源
@@ -135,24 +186,30 @@ class TankMain(object):
 
         myTank = MyTank(screen)
         # enemy = EnemyTank(screen)
-        enemyList = []
         for i in range(0, 3):
-            enemyList.append(EnemyTank(screen))
+            TankMain.enemyList.append(EnemyTank(screen))
         while True:
             # 设置屏幕变景色为黑色 color RGB(0,0,0)
             screen.fill((0, 0, 0))
             # 显示文字
-            screen.blit(self.writeText(), (0, 5))
+            for i, text in enumerate(self.writeText(), 0):
+                screen.blit(text, (0, 5 + 18*i))
             self.getEvent(myTank)
 
             myTank.display()
             myTank.move()
 
-            # enemy.display()
-            # enemy.random_move()
-            for enemy in enemyList:
+            # 显示所有的敌方坦克
+            for enemy in TankMain.enemyList:
                 enemy.display()
                 enemy.random_move()
+
+            for m in TankMain.my_tank_bullet_list:
+                if m.live:
+                    m.display()
+                    m.move()
+                else:
+                    TankMain.my_tank_bullet_list.remove(m)
 
             time.sleep(0.05)
             # 显示重置
@@ -181,6 +238,8 @@ class TankMain(object):
                     myTank.direction = "D"
                     myTank.stop = False
                     pass
+                if event.key == K_SPACE:
+                    TankMain.my_tank_bullet_list.append(myTank.fire())
                 if event.key == K_ESCAPE:
                     self.stopGame()
                     pass
@@ -203,8 +262,9 @@ class TankMain(object):
     # 在屏幕左上角显示文字
     def writeText(self):
         font = pygame.font.SysFont("simsunnsimsun", 18)
-        text_sf = font.render("敌方坦克:5", True, (255, 0, 0))
-        return text_sf
+        text_sf1 = font.render("敌方坦克:%d"%len(TankMain.enemyList), True, (255, 0, 0))
+        text_sf2 = font.render("炮弹数量:%d"%len(TankMain.my_tank_bullet_list), True, (255, 0, 0))
+        return text_sf1, text_sf2
         pass
 
 
